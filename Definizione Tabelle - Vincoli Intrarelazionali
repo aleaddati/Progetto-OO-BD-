@@ -35,12 +35,13 @@ ALTER TABLE iscrizione(
 ADD CONSTRAINT iscrizione_pkey PRIMARY KEY (cod_i),
 ADD CONSTRAINT "FK_cod_c_iscrizione" FOREIGN KEY (cod_c)
         REFERENCES corso (cod_c) 
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
         ON DELETE CASCADE,
 ADD CONSTRAINT "FK_matricola_iscrizione" FOREIGN KEY (matricola)
         REFERENCES studente (matricola) 
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
         ON DELETE CASCADE
+)
 
 
 CREATE TABLE IF NOT EXISTS keywords
@@ -53,11 +54,11 @@ ALTER TABLE keywords(
 ADD CONSTRAINT "KeyWords_pkey" PRIMARY KEY (testo),
 ADD CONSTRAINT "FK_cod_c_tema" FOREIGN KEY (cod_c)
         REFERENCES corso (cod_c)
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
         ON DELETE CASCADE,
 ADD CONSTRAINT "FK_nome_tema" FOREIGN KEY (nome_tema)
         REFERENCES tema (nome_tema) 
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
         ON DELETE CASCADE
 )
 
@@ -78,7 +79,7 @@ CREATE TABLE IF NOT EXISTS lezione
 ALTER TABLE lezione
 ADD CONSTRAINT "Lezione_pkey" PRIMARY KEY (cod_l),
 ADD CONSTRAINT "FK_cod_c" FOREIGN KEY (cod_c)
-        REFERENCEScorso (cod_c) 
+        REFERENCES corso (cod_c) 
         ON UPDATE CASCADE,
         ON DELETE CASCADE,
 ADD CONSTRAINT ora_lezione CHECK (ora_inizio < ora_fine),
