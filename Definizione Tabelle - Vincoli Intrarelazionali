@@ -1,0 +1,187 @@
+CREATE TABLE IF NOT EXISTS corso
+(
+    cod_c bigint NOT NULL,
+    nome character varying  NOT NULL,
+    descrizione character varying  NOT NULL,
+    data_inizio date NOT NULL,
+    data_fine date NOT NULL,
+    prezzo_corso bigint NOT NULL,
+    numero_lezioni bigint NOT NULL,
+    percentuale_presenze bigint NOT NULL,
+    min_partecipanti bigint NOT NULL,
+    max_partecipanti bigint NOT NULL,
+    id_gestore bigint NOT NULL,
+    
+   
+)
+
+ALTER TABLE corso(
+ADD CONSTRAINT "Corso_pkey" PRIMARY KEY (cod_c),
+ADD CONSTRAINT "FK_ID_Gestore_Corso" FOREIGN KEY (id_gestore)
+        REFERENCES public.utente (id_gestore) ON UPDATE CASCADE
+        ON DELETE CASCADE;
+ADD CONSTRAINT data_corso CHECK (data_inizio < data_fine) NOT VALID,
+ADD CONSTRAINT percentuale CHECK (percentuale_presenze > 0 AND percentuale_presenze < 100) NOT VALID,
+ADD CONSTRAINT numero_lezioni_corso CHECK (numero_lezioni > 5 AND numero_lezioni < 100) NOT VALID,
+ADD CONSTRAINT partecipanti_corso CHECK (min_partecipanti < max_partecipanti AND min_partecipanti > 0 AND max_partecipanti < 500) NOT VALID
+)
+
+
+CREATE TABLE IF NOT EXISTS iscrizione
+(
+    data_iscrizione date NOT NULL,
+    costo_iscrizione character varying NOT NULL,
+    cod_c bigint NOT NULL,
+    matricola character varying NOT NULL,
+    cod_i bigint NOT NULL,
+)
+
+ALTER TABLE iscrizione(
+ADD CONSTRAINT iscrizione_pkey PRIMARY KEY (cod_i),
+ADD CONSTRAINT "FK_cod_c_iscrizione" FOREIGN KEY (cod_c)
+        REFERENCES public.corso (cod_c) 
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+ADD CONSTRAINT "FK_matricola_iscrizione" FOREIGN KEY (matricola)
+        REFERENCES public.studente (matricola) 
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+
+
+CREATE TABLE IF NOT EXISTS keywords
+(
+    nome_tema character varying NOT NULL,
+    cod_c bigint NOT NULL,
+    testo character varying NOT NULL,
+)
+
+
+ALTER TABLE keywords(
+ADD CONSTRAINT "KeyWords_pkey" PRIMARY KEY (testo),
+ADD CONSTRAINT "FK_cod_c_tema" FOREIGN KEY (cod_c)
+        REFERENCES public.corso (cod_c)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+ADD CONSTRAINT "FK_nome_tema" FOREIGN KEY (nome_tema)
+        REFERENCES public.tema (nome_tema) 
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+)
+
+
+CREATE TABLE IF NOT EXISTS lezione
+(
+    cod_l bigint NOT NULL,
+    titolo character varying NOT NULL,
+    durata interval NOT NULL,
+    ora_inizio time without time zone NOT NULL,
+    ora_fine time without time zone NOT NULL,
+    descrizione character varying ,
+    data date NOT NULL,
+    cod_c bigint NOT NULL,
+    mod_lezione "Tipo"
+)
+
+
+ALTER TABLE lezione
+ADD CONSTRAINT "Lezione_pkey" PRIMARY KEY (cod_l),
+ADD CONSTRAINT "FK_cod_c" FOREIGN KEY (cod_c)
+        REFERENCES public.corso (cod_c) 
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+ADD CONSTRAINT ora_lezione CHECK (ora_inizio < ora_fine),
+ADD CONSTRAINT controllo_ora_inizio CHECK (ora_inizio > '08:30:00'::time without time zone),
+ADD CONSTRAINT controllo_ora_fine CHECK (ora_fine < '18:30:00'::time without time zone),
+ADD CONSTRAINT durata_lezione CHECK (durata > '01:00:00'::interval AND durata < '04:00:00'::interval)
+)
+
+
+CREATE TABLE IF NOT EXISTS partecipazione
+(
+    "modalità" "Tipo" NOT NULL,
+    presenza boolean NOT NULL,
+    matricola character varying NOT NULL,
+    cod_l bigint NOT NULL
+)
+
+
+
+ALTER TABLE partecipazione(
+ADD CONSTRAINT "FK_cod_l" FOREIGN KEY (cod_l)
+        REFERENCES lezione (cod_l)
+        ON UPDATE CASCADE,
+        ON DELETE CASCADE,
+ADD CONSTRAINT "FK_matricola_partecipazione" FOREIGN KEY (matricola)
+        REFERENCES public.studente (matricola)
+        ON UPDATE CASCADE,
+        ON DELETE CASCADE,
+)
+
+
+
+
+CREATE TABLE IF NOT EXISTS professore
+(
+    id_prof character varying NOT NULL,
+    nome character varying NOT NULL,
+    cognome character varying NOT NULL,
+    cf character varying NOT NULL,
+)
+
+ALTER TABLE professore(
+ADD CONSTRAINT "Professore_pkey" PRIMARY KEY (id_prof)
+)
+
+
+CREATE TABLE IF NOT EXISTS studente
+(
+    matricola character varying NOT NULL,
+    nome character varying NOT NULL,
+    cognome character varying NOT NULL,
+    cf character varying NOT NULL,
+    data_n date NOT NULL
+)
+
+
+ALTER TABLE studente(
+ADD CONSTRAINT "Studente_pkey" PRIMARY KEY (matricola),
+ADD CONSTRAINT data_nascita_studenti CHECK (data_n < '2003-01-01'::date)
+)
+
+
+CREATE TABLE IF NOT EXISTS tema
+(
+    nome_tema character varying NOT NULL
+)
+
+ALTER TABLE tema(
+ADD CONSTRAINT "Tema_pkey" PRIMARY KEY (nome_tema)
+)
+
+
+
+CREATE TABLE IF NOT EXISTS utente
+(
+    nome character varying NOT NULL,
+    cognome character varying NOT NULL,
+    data_n date NOT NULL,
+    cf "char" NOT NULL,
+    id_gestore bigint NOT NULL
+)
+
+
+ALTER TABLE utente(
+ADD CONSTRAINT "PK_ID_Gestore" PRIMARY KEY (id_gestore),
+ADD CONSTRAINT data_nascita_utente CHECK (data_n > '1900-01-01'::date)
+)
+
+
+CREATE TYPE public."Tipo" AS
+(
+	"DaD" character varying,
+	"Presenza" character varying
+);
+
+
+
+
