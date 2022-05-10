@@ -1,0 +1,337 @@
+/*  TRIGGER 
+CANCELLA LE LEZIONI DI UN CORSO NELLA TABELLA LEZIONE QUANDO QUESTO VIENE ELIMINATO DALLA TABELLA CORSO  */
+
+
+CREATE FUNCTION cancella_lezione()
+RETURNS TRIGGER AS 
+$$
+DECLARE
+S integer;
+
+
+BEGIN
+FOR S IN 1..old.numero_lezioni
+LOOP
+
+	DELETE FROM lezione
+	WHERE lezione.cod_c = old.cod_c;
+	
+END LOOP;
+RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+
+CREATE TRIGGER trigger_cancella_lezione
+AFTER DELETE ON corso
+FOR EACH ROW
+EXECUTE PROCEDURE cancella_lezione();
+
+
+
+
+
+
+
+
+/*  TRIGGER 
+INSERISCE LE LEZIONI DEL CORSO NELLA TABELLA LEZIONE QUANDO QUESTO VIENE INSERITO NELLA TABELLA CORSO  */
+
+
+CREATE FUNCTION inserimento_lezione()
+RETURNS TRIGGER AS 
+$$
+DECLARE
+S integer;
+
+
+BEGIN
+	FOR S IN 1..NEW.numero_lezioni
+	LOOP
+
+		INSERT INTO lezione(cod_l, cod_c, titolo)
+		VALUES(new.cod_c+S, new.cod_c, 'Lezione ' || S);
+	END LOOP;
+	RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+
+CREATE TRIGGER trigger_inserimento_lezione
+AFTER INSERT ON corso
+FOR EACH ROW
+EXECUTE PROCEDURE inserimento_lezione();
+
+
+
+
+
+
+
+/* TRIGGER
+QUANDO ISCRIVO UNO STUDENTE AL CORSO, LO STUDENTE NON DEVE ESSERE GIA' ISCRITTO A QUEL CORSO */
+
+
+
+CREATE FUNCTION gia_iscritto()
+RETURNS TRIGGER AS 
+&&
+DECLARE
+
+CURSOR cursore is (
+	SELECT *
+	FROM iscrizione
+BEGIN
+
+FOR S IN cursore
+LOOP
+	IF (NEW.matricola = i.matricola )
+	DELETE FROM iscrizione
+	WHERE NEW.matricola = I.matricola
+	ENDIF;
+END LOOP;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+CREATE TRIGGER trigger_gia_iscritto
+AFTER INSERT ON iscrizione
+FOR EACH ROW
+EXECUTE PROCEDURE gia_iscritto();
+
+
+
+
+
+
+/* TRIGGER
+UNO STUDENTE NON PUO' SEGUIRE UNA LEZIONE DI UN CORSO A CUI NON E' ISCRITTO */
+
+
+
+CREATE FUNCTION controllo_iscrizione_lezione()
+RETURNS TRIGGER AS 
+&&
+DECLARE
+cont integer;
+
+
+BEGIN
+SELECT COUNT (*) into cont
+FROM partecipazione as p join lezione as l on p.cod_l = l.cod_l
+WHERE p.matricola = NEW.matricola 
+		AND l.cod_c NOT IN ( SELECT i.cod_c
+					FROM iscrizione as i
+					WHERE i.matricola = NEW.matricola)
+		
+	
+
+IF cont > 0 
+	DELETE FROM partecipazione
+	WHERE p.matricola = NEW.matricola
+ENDIF;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+CREATE TRIGGER trigger_controllo_iscrizione_lezione
+AFTER INSERT ON 
+FOR EACH ROW
+EXECUTE PROCEDURE controllo_iscrizione_lezione();
+
+
+
+
+
+/* TRIGGER
+DUE LEZIONI o piu' DELLO STESSO CORSO NON POSSONO SVOLGERSI CONTEMPORANEAMENTE */
+
+CREATE FUNCTION controllo_ora_lezioni_seguite()
+RETURNS TRIGGER AS 
+&&
+DECLARE
+cont integer;
+
+
+BEGIN
+SELECT COUNT (*) INTO cont
+FROM lezione as L JOIN lezione as L1 on NEW.cod_c = L1.cod_c
+WHERE NEW.cod_l <> L1.cod_l AND 
+		 NEW.data = L1.data AND (
+		(NEW.ora_inizio BETWEEN L1.ora_inizio AND L1.ora_fine) OR
+		(L1.ora_inizio BETWEEN NEW.ora_inizio AND NEW.ora_fine) OR 		
+		  (NEW.ora_fine BETWEEN L1.ora_inizio AND L1.ora_fine) OR 
+		  (L1.ora_fine BETWEEN NEW.ora_inizio AND NEW.ora_fine) OR 
+		  (NEW.ora_inizio < L1.ora_inizio AND L1.ora_fine > NEW.ora_fine) OR
+		  (L1.ora_inizio < NEW.ora_inizio AND NEW.ora_fine > L1.ora_fine)
+	)
+	
+ IF cont>0
+ THEN
+ DELETE FROM lezione
+		WHERE lezione.cod_l = NEW.cod_l
+ ENDIF;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+
+CREATE TRIGGER trigger_controllo_ora_lezioni_seguite
+AFTER INSERT ON lezione
+FOR EACH ROW
+EXECUTE PROCEDURE controllo_ora_lezioni_seguite()
+
+
+
+
+
+/* TRIGGER
+UNO STUDENTE NON PUO' SEGUIRE 2 O PIU' LEZIONI DI CORSI DIVERSI CONTEMPORANEAMENTE */
+
+CREATE FUNCTION controllo_lezioni_contemporaneamente()
+RETURNS TRIGGER AS
+$$
+DECLARE
+cont integer;
+
+BEGIN
+
+SELECT COUNT (*) INTO cont
+FROM partecipazione as p
+WHERE p.matricola = NEW.matricola 
+		AND p.cod_l IN (SELECT
+						FROM lezione as l join partecipazione as p1 on p1.cod_l = l.cod_l
+						WHERE NEW.data = l.data AND (
+						(NEW.ora_inizio < l.ora_inizio AND NEW.ora_fine > l.ora_fine) OR
+						(NEW.ora_inizio BETWEEN l.ora_inizio AND l.ora_fine) OR 
+						(NEW.ora_fine BETWEEN l.ora_inizio AND l.ora_fine)
+						)
+
+IF cont > 1 
+	DELETE FROM partecipazione
+	WHERE partecipazione.cod_l = NEW.cod_l AND p.matricola = NEW.matricola 
+ENDIF;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+
+CREATE TRIGGER trigger_controllo_lezioni_contemporaneamente
+AFTER INSERT ON partecipazione
+FOR EACH ROW
+EXECUTE PROCEDURE controllo_lezioni_contemporaneamente();
+
+
+
+
+
+
+/*TRIGGER
+UN CORSO NON PUO' AVERE PIU' PARTECIPANTI DEL MASSIMO CONSENTITO DAL CORSO*/
+
+CREATE FUNCTION max_partecipanti()
+RETURNS TRIGGER AS 
+$$
+DECLARE
+iscritti integer;
+BEGIN
+SELECT COUNT (*) INTO iscritti
+FROM iscrizione as i
+WHERE i.cod_c = NEW.cod_c
+
+
+IF (iscritti > (SELECT c.max_partecipanti
+				FROM corso as c join iscrizione as i1 on c.cod_c = i1.cod_c
+				WHERE i.matricola = NEW.matricola AND c.cod_c = NEW.cod_c)
+				
+				DELETE FROM iscrizione 
+				WHERE iscrizione.cod_c = NEW.cod_c AND iscrizione.matricola = NEW.matricola
+ENDIF;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+
+CREATE TRIGGER trigger_max_partecipanti 
+AFTER INSERT ON iscrizione
+FOR EACH ROW
+EXECUTE PROCEDURE max_partecipanti()
+
+
+
+
+
+/* TRIGGER
+UNO STUDENTE NON PUO' ISCRIVERSI AD UN CORSO TERMINATO */
+
+CREATE FUNTION controllo_corso_terminato()
+RETURNS TRIGGER AS
+$$
+DECLARE
+
+
+BEGIN
+SELECT COUNT (*) INTO cont
+FROM iscrizione as i join corso as c on i.cod_c = c.cod_c
+WHERE i.cod_c = NEW.cod_c AND i.matricola = NEW.matricola
+	AND NEW.data_iscrizione > c.data_fine
+	
+IF (cont > 0)
+	DELETE FROM iscrizione
+	WHERE iscrizione.matricola = NEW.matricola
+ENDIF;
+$$
+LANGUAGE 'plpgsql';
+END;
+
+
+
+CREATE TRIGGER trigger_controllo_corso_terminato
+AFTER INSERT ON iscrizione
+FOR EACH ROW
+EXECUTE PROCEDURE controllo_corso_terminato();
+
+
+
+
+/* TRIGGER
+OGNI CORSO DEVE SEMPRE AVERE UN NUMERO DI PARTECIPANTI MAGGIORE DI corso.min_partecipanti */
+
+CREATE FUNCTION controllo_min_partecipanti
+RETURNS TRIGGER AS 
+$$
+DECLARE
+num_iscritti integer;
+
+BEGIN
+
+SELECT COUNT(*) INTO num_iscritti
+ FROM iscrizione as i
+ WHERE i.cod_c = NEW.cod_c
+
+IF (SELECT c.min_partecipanti
+	FROM corso as c 
+	WHERE c.cod_c = NEW.cod_c ) < num_iscritti
+
+	DELETE FROM corso
+	WHERE c.cod_c = NEW.cod_c
+ENDIF;		
+$$
+LANGUAGE 'plpgsql';
+END;
+
+CREATE TRIGGER trigger_controllo_min_partecipanti
+AFTER INSERT ON corso
+FOR EACH ROW
+EXECUTE PROCEDURE controllo_min_partecipanti();
+
+
+
+
+
+
+
+
+
