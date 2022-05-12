@@ -77,29 +77,31 @@ QUANDO ISCRIVO UNO STUDENTE AL CORSO, LO STUDENTE NON DEVE ESSERE GIA' ISCRITTO 
 
 CREATE FUNCTION gia_iscritto()
 RETURNS TRIGGER AS 
-&&
+$$
 DECLARE
 
-CURSOR cursore is (
+cursore CURSOR IS(
 	SELECT *
-	FROM iscrizione
+	FROM iscrizione);
 BEGIN
 
 FOR S IN cursore
 LOOP
-	IF (NEW.matricola = i.matricola )
+	IF (NEW.matricola = i.matricola ) THEN
 	DELETE FROM iscrizione
-	WHERE NEW.matricola = I.matricola
-	ENDIF;
+	WHERE NEW.matricola = iscrizione.matricola;
+	END IF;
 END LOOP;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
+
 
 CREATE TRIGGER trigger_gia_iscritto
 AFTER INSERT ON iscrizione
 FOR EACH ROW
 EXECUTE PROCEDURE gia_iscritto();
+
 
 
 
@@ -113,7 +115,7 @@ UNO STUDENTE NON PUO' SEGUIRE UNA LEZIONE DI UN CORSO A CUI NON E' ISCRITTO */
 
 CREATE FUNCTION controllo_iscrizione_lezione()
 RETURNS TRIGGER AS 
-&&
+$$
 DECLARE
 cont integer;
 
@@ -124,22 +126,23 @@ FROM partecipazione as p join lezione as l on p.cod_l = l.cod_l
 WHERE p.matricola = NEW.matricola 
 		AND l.cod_c NOT IN ( SELECT i.cod_c
 					FROM iscrizione as i
-					WHERE i.matricola = NEW.matricola)
+					WHERE i.matricola = NEW.matricola);
 		
 	
 
-IF cont > 0 
-	DELETE FROM partecipazione
-	WHERE p.matricola = NEW.matricola
-ENDIF;
+IF (cont > 0) THEN
+	DELETE FROM partecipazione 
+	WHERE partecipazione.matricola = NEW.matricola;
+END IF;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
 
 CREATE TRIGGER trigger_controllo_iscrizione_lezione
-AFTER INSERT ON 
+AFTER INSERT ON partecipazione
 FOR EACH ROW
 EXECUTE PROCEDURE controllo_iscrizione_lezione();
+
 
 
 
@@ -150,7 +153,7 @@ DUE LEZIONI o piu' DELLO STESSO CORSO NON POSSONO SVOLGERSI CONTEMPORANEAMENTE *
 
 CREATE FUNCTION controllo_ora_lezioni_seguite()
 RETURNS TRIGGER AS 
-&&
+$$
 DECLARE
 cont integer;
 
@@ -166,16 +169,16 @@ WHERE NEW.cod_l <> L1.cod_l AND
 		  (L1.ora_fine BETWEEN NEW.ora_inizio AND NEW.ora_fine) OR 
 		  (NEW.ora_inizio < L1.ora_inizio AND L1.ora_fine > NEW.ora_fine) OR
 		  (L1.ora_inizio < NEW.ora_inizio AND NEW.ora_fine > L1.ora_fine)
-	)
+	);
 	
- IF cont>0
+ IF (cont>0)
  THEN
  DELETE FROM lezione
-		WHERE lezione.cod_l = NEW.cod_l
- ENDIF;
+		WHERE lezione.cod_l = NEW.cod_l;
+ END IF;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
 
 
 CREATE TRIGGER trigger_controllo_ora_lezioni_seguite
@@ -208,14 +211,16 @@ WHERE p.matricola = NEW.matricola
 						(NEW.ora_inizio BETWEEN l.ora_inizio AND l.ora_fine) OR 
 						(NEW.ora_fine BETWEEN l.ora_inizio AND l.ora_fine)
 						)
+						);
 
-IF cont > 1 
+IF (cont > 1) 
+THEN 
 	DELETE FROM partecipazione
-	WHERE partecipazione.cod_l = NEW.cod_l AND p.matricola = NEW.matricola 
-ENDIF;
+	WHERE partecipazione.cod_l = NEW.cod_l AND partecipazione.matricola = NEW.matricola;
+END IF;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
 
 
 CREATE TRIGGER trigger_controllo_lezioni_contemporaneamente
@@ -231,7 +236,7 @@ EXECUTE PROCEDURE controllo_lezioni_contemporaneamente();
 /*TRIGGER
 UN CORSO NON PUO' AVERE PIU' PARTECIPANTI DEL MASSIMO CONSENTITO DAL CORSO*/
 
-CREATE FUNCTION max_partecipanti()
+CREATE FUNCTION controllo_max_partecipanti()
 RETURNS TRIGGER AS 
 $$
 DECLARE
@@ -239,26 +244,25 @@ iscritti integer;
 BEGIN
 SELECT COUNT (*) INTO iscritti
 FROM iscrizione as i
-WHERE i.cod_c = NEW.cod_c
+WHERE i.cod_c = NEW.cod_c;
 
 
 IF (iscritti > (SELECT c.max_partecipanti
 				FROM corso as c join iscrizione as i1 on c.cod_c = i1.cod_c
-				WHERE i.matricola = NEW.matricola AND c.cod_c = NEW.cod_c)
-				
+				WHERE i.matricola = NEW.matricola AND c.cod_c = NEW.cod_c))
+				THEN
 				DELETE FROM iscrizione 
-				WHERE iscrizione.cod_c = NEW.cod_c AND iscrizione.matricola = NEW.matricola
-ENDIF;
+				WHERE iscrizione.cod_c = NEW.cod_c AND iscrizione.matricola = NEW.matricola;
+END IF;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
 
 
-CREATE TRIGGER trigger_max_partecipanti 
+CREATE TRIGGER trigger_controllo_max_partecipanti 
 AFTER INSERT ON iscrizione
 FOR EACH ROW
-EXECUTE PROCEDURE max_partecipanti()
-
+EXECUTE PROCEDURE controllo_max_partecipanti()
 
 
 
@@ -266,26 +270,25 @@ EXECUTE PROCEDURE max_partecipanti()
 /* TRIGGER
 UNO STUDENTE NON PUO' ISCRIVERSI AD UN CORSO TERMINATO */
 
-CREATE FUNTION controllo_corso_terminato()
+CREATE FUNCTION controllo_corso_terminato()
 RETURNS TRIGGER AS
 $$
 DECLARE
-
+cont integer;
 
 BEGIN
 SELECT COUNT (*) INTO cont
 FROM iscrizione as i join corso as c on i.cod_c = c.cod_c
 WHERE i.cod_c = NEW.cod_c AND i.matricola = NEW.matricola
-	AND NEW.data_iscrizione > c.data_fine
+	AND NEW.data_iscrizione > c.data_fine;
 	
-IF (cont > 0)
+IF (cont > 0) THEN
 	DELETE FROM iscrizione
-	WHERE iscrizione.matricola = NEW.matricola
-ENDIF;
+	WHERE iscrizione.matricola = NEW.matricola;
+END IF;
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
-
 
 
 CREATE TRIGGER trigger_controllo_corso_terminato
@@ -299,7 +302,7 @@ EXECUTE PROCEDURE controllo_corso_terminato();
 /* TRIGGER
 OGNI CORSO DEVE SEMPRE AVERE UN NUMERO DI PARTECIPANTI MAGGIORE DI corso.min_partecipanti */
 
-CREATE FUNCTION controllo_min_partecipanti
+CREATE FUNCTION controllo_min_partecipanti()
 RETURNS TRIGGER AS 
 $$
 DECLARE
@@ -309,23 +312,27 @@ BEGIN
 
 SELECT COUNT(*) INTO num_iscritti
  FROM iscrizione as i
- WHERE i.cod_c = NEW.cod_c
+ WHERE i.cod_c = NEW.cod_c;
 
-IF (SELECT c.min_partecipanti
+IF ((SELECT c.min_partecipanti
 	FROM corso as c 
-	WHERE c.cod_c = NEW.cod_c ) < num_iscritti
-
+	WHERE c.cod_c = NEW.cod_c ) < num_iscritti)
+	THEN
+	
 	DELETE FROM corso
-	WHERE c.cod_c = NEW.cod_c
-ENDIF;		
+	WHERE c.cod_c = NEW.cod_c;
+END IF;		
+END;
 $$
 LANGUAGE 'plpgsql';
-END;
+
 
 CREATE TRIGGER trigger_controllo_min_partecipanti
 AFTER INSERT ON corso
 FOR EACH ROW
 EXECUTE PROCEDURE controllo_min_partecipanti();
+
+
 
 
 
