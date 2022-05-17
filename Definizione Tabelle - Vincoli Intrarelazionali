@@ -167,11 +167,6 @@ ADD CONSTRAINT data_nascita_utente CHECK (data_n > '1900-01-01'::date)
 )
 
 
-CREATE TYPE public."Tipo" AS
-(
-	"DaD" character varying,
-	"Presenza" character varying
-);
 
 
 
