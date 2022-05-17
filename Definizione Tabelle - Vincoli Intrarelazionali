@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS corso
 (
-    cod_c bigint NOT NULL,
+    cod_c INTEGER NOT NULL,
     nome VARCHAR(20) NOT NULL,
     descrizione VARCHAR(400)  NOT NULL,
     data_inizio date NOT NULL,
@@ -17,22 +17,20 @@ ADD CONSTRAINT "Corso_pkey" PRIMARY KEY (cod_c),
 ADD CONSTRAINT "FK_ID_Gestore_Corso" FOREIGN KEY (id_gestore)
         REFERENCES utente (id_gestore) ON UPDATE CASCADE
         ON DELETE CASCADE;
-ADD CONSTRAINT data_corso CHECK (data_inizio < data_fine) NOT VALID,
-ADD CONSTRAINT percentuale CHECK (percentuale_presenze > 0 AND percentuale_presenze < 100) NOT VALID,
-ADD CONSTRAINT numero_lezioni_corso CHECK (numero_lezioni > 5 AND numero_lezioni < 100) NOT VALID,
-ADD CONSTRAINT partecipanti_corso CHECK (min_partecipanti < max_partecipanti AND min_partecipanti > 0 AND max_partecipanti < 500) NOT VALID
+ADD CONSTRAINT data_corso CHECK (data_inizio < data_fine),
+ADD CONSTRAINT percentuale CHECK (percentuale_presenze > 0 AND percentuale_presenze < 100),
+ADD CONSTRAINT numero_lezioni_corso CHECK (numero_lezioni > 5 AND numero_lezioni < 100),
+ADD CONSTRAINT partecipanti_corso CHECK (min_partecipanti < max_partecipanti AND min_partecipanti > 0 AND max_partecipanti < 500)
 )
 
 
 CREATE TABLE IF NOT EXISTS iscrizione
 (
     data_iscrizione date NOT NULL,
-    costo_iscrizione INTEGER NOT NULL,
-    cod_i bigint NOT NULL,
+    costo_iscrizione INTEGER NOT NULL
 )
 
 ALTER TABLE iscrizione(
-ADD CONSTRAINT iscrizione_pkey PRIMARY KEY (cod_i),
 ADD CONSTRAINT "FK_cod_c_iscrizione" FOREIGN KEY (cod_c)
         REFERENCES corso (cod_c) 
         ON UPDATE CASCADE,
@@ -68,11 +66,8 @@ CREATE TABLE IF NOT EXISTS lezione
     cod_l INTEGER NOT NULL,
     titolo VARCHAR(20) NOT NULL,
     durata interval NOT NULL,
-    ora_inizio time without time zone NOT NULL,
-    ora_fine time without time zone NOT NULL,
     descrizione VARCHAR(400),
-    data date NOT NULL,
-    mod_lezione "Tipo"
+    data date NOT NULL
 )
 
 
@@ -83,16 +78,13 @@ ADD CONSTRAINT "FK_cod_c" FOREIGN KEY (cod_c)
         ON UPDATE CASCADE,
         ON DELETE CASCADE,
 ADD CONSTRAINT ora_lezione CHECK (ora_inizio < ora_fine),
-ADD CONSTRAINT controllo_ora_inizio CHECK (ora_inizio > '08:30:00'::time without time zone),
-ADD CONSTRAINT controllo_ora_fine CHECK (ora_fine < '18:30:00'::time without time zone),
 ADD CONSTRAINT durata_lezione CHECK (durata > '01:00:00'::interval AND durata < '04:00:00'::interval)
 )
 
 
 CREATE TABLE IF NOT EXISTS partecipazione
 (
-    "modalità" "Tipo" NOT NULL,
-    presenza boolean NOT NULL
+    presenza boolean NOT NULL,
 )
 
 
@@ -108,20 +100,6 @@ ADD CONSTRAINT "FK_matricola_partecipazione" FOREIGN KEY (matricola)
         ON DELETE CASCADE,
 )
 
-
-
-
-CREATE TABLE IF NOT EXISTS professore
-(
-    id_prof CHAR(10)
-    nome VARCHAR(20) NOT NULL,
-    cognome VARCHAR(20) NOT NULL,
-    cf CHAR(16) NOT NULL,
-)
-
-ALTER TABLE professore(
-ADD CONSTRAINT "Professore_pkey" PRIMARY KEY (id_prof)
-)
 
 
 CREATE TABLE IF NOT EXISTS studente
